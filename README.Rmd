@@ -1,0 +1,110 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+pacman::p_load(tidyverse)
+```
+
+This repo presents the data analysis of the paper...
+
+## Data
+
+```{r}
+pol <- read_rds(here::here("data/pol_db.rds"))
+
+pol_strict <- pol %>% 
+  group_by(user_unique_id) %>%
+  filter(mean(political, na.rm = T) > .9) %>%
+  mutate(total_play = sum(n_play), 
+         most_popular = max(n_play),
+         mean_play = mean(n_play), 
+         gini_views = DescTools::Gini(n_play)) %>%
+  ungroup %>%
+  glimpse
+
+options(scipen = 999)
+
+dt_h2 <- read_rds(here::here("data/dt_commenter.rds")) %>%
+  glimpse
+```
+
+## H1: The ratio of views to followers will be high on TikTok.
+
+```{r}
+
+dt_h1 <- pol_strict %>%
+  distinct(user_unique_id, .keep_all = T) %>%
+  select(user_unique_id, total_play, n_follower) %>%
+  mutate(ratio = total_play/n_follower)
+
+dt_h1 %>%
+  ggplot(aes(x = ratio)) + geom_density() + scale_x_log10()
+
+```
+
+
+## H2: Among accounts that leave comments, the percentage who also upload videos will be large on TikTok.
+
+```{r}
+
+dt_h2 %>% 
+  drop_na %>%
+  # filter(n_videos < 400) %>%
+  mutate(commenter = n_comment == 0) %>%
+  ggplot(aes(x = n_videos)) + geom_density() + scale_x_log10()
+  
+```
+
+
+## H3: The relationship between followers and mean video views is weaker for TikTok.
+
+```{r}
+
+dt_h3 <- pol_strict %>%
+  distinct(user_unique_id, .keep_all = T) %>%
+  select(user_unique_id, mean_play, n_follower)
+
+dt_h3 %>%
+  ggplot(aes(x = n_follower, y = mean_play)) + geom_point() + scale_x_log10() + scale_y_log10()
+
+```
+
+
+## H4: The variance in viewership across a single accounts' tiktoks will be high.
+
+```{r}
+
+dt_h4 <- pol_strict %>% 
+  group_by(user_unique_id) %>%
+  summarise(view_sd = sd(n_play))
+
+dt_h4 %>%
+  ggplot(aes(x = view_sd)) + geom_density() + scale_x_log10()
+
+```
+
+## H5: The ratio of viewership for a single accounts' most popular tiktok to their average tiktok viewership will be high.
+
+```{r}
+dt_h5 <- pol_strict %>% 
+  distinct(user_unique_id, .keep_all = T) %>%
+  select(most_popular, mean_play, gini_views, n_video, total_play) %>%
+  mutate(peak_ratio = most_popular/mean_play)
+
+  
+dt_h5 %>%  ggplot(aes(x = peak_ratio)) + geom_density() + scale_x_log10()
+```
+
+
+```{r}
+dt_h5 %>% ggplot(aes(x = gini_views)) + geom_density()
+```
+
