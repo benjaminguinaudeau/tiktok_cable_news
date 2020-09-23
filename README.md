@@ -8,9 +8,12 @@ This repo presents the data analysis of the paper…
 ``` r
 pol <- read_rds(here::here("data/pol_db.rds"))
 
-tk_dat <- pol %>% 
+non_political <- read_rds("data/non_political.rds")
+
+tk_dat <- pol  %>% 
+  anti_join(non_political %>% rename(user_unique_id = user_id)) %>% 
   group_by(user_unique_id) %>%
-  filter(mean(political, na.rm = T) > .9) %>%
+  # filter(mean(political, na.rm = T) > .9) %>%
   mutate(total_play = sum(n_play, na.rm = T), 
          most_popular = max(n_play, na.rm = T),
          mean_play = mean(n_play, na.rm = T), 
@@ -20,7 +23,20 @@ tk_dat <- pol %>%
   ungroup %>% 
   mutate(Platform = "TikTok") %>% 
   glimpse
-#> Rows: 276,761
+#> Joining, by = "user_unique_id"
+#> Warning: Problem with `mutate()` input `most_popular`.
+#> x no non-missing arguments to max; returning -Inf
+#> i Input `most_popular` is `max(n_play, na.rm = T)`.
+#> i The error occurred in group 4852: user_unique_id = "theliberalrobloxer".
+#> Warning in max(n_play, na.rm = T): no non-missing arguments to max; returning -
+#> Inf
+#> Warning: Problem with `mutate()` input `most_popular`.
+#> x no non-missing arguments to max; returning -Inf
+#> i Input `most_popular` is `max(n_play, na.rm = T)`.
+#> i The error occurred in group 5495: user_unique_id = NA.
+#> Warning in max(n_play, na.rm = T): no non-missing arguments to max; returning -
+#> Inf
+#> Rows: 712,193
 #> Columns: 35
 #> $ post_id        <chr> "6846431122017029382", "6846052504040410374", "68457...
 #> $ text           <chr> "#greenscreen #fyp #loggers #biden #factsoverfeeling...
@@ -51,7 +67,7 @@ tk_dat <- pol %>%
 #> $ political      <int> 1, 1, NA, 1, 1, 1, 1, 1, NA, 1, NA, 1, 1, 1, NA, 1, ...
 #> $ liberal        <int> 0, 1, NA, 1, 0, 0, 1, 1, NA, 1, NA, 0, 1, 1, NA, 0, ...
 #> $ total_play     <int> 49083, 49083, 49083, 49083, 49083, 49083, 49083, 490...
-#> $ most_popular   <int> 2004, 2004, 2004, 2004, 2004, 2004, 2004, 2004, 2004...
+#> $ most_popular   <dbl> 2004, 2004, 2004, 2004, 2004, 2004, 2004, 2004, 2004...
 #> $ mean_play      <dbl> 301.1227, 301.1227, 301.1227, 301.1227, 301.1227, 30...
 #> $ median_play    <dbl> 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 20...
 #> $ sd_play        <dbl> 309.1564, 309.1564, 309.1564, 309.1564, 309.1564, 30...
@@ -168,7 +184,7 @@ dt_h2 <- dt_h2_tk%>%
 
 ``` r
 tk_dat %>% nrow
-#> [1] 276761
+#> [1] 712193
 ```
 
 ## Number of TikTok posts - left vs. right
@@ -179,14 +195,14 @@ tk_dat %>% count(liberal, sort = T) %>% drop_na() %>% knitr::kable()
 
 | liberal |      n |
 | ------: | -----: |
-|       1 | 133953 |
-|       0 |  99560 |
+|       1 | 361590 |
+|       0 | 205664 |
 
 ## Number of TikTok accounts
 
 ``` r
 tk_dat %>% distinct(user_unique_id, .keep_all = T) %>% nrow()
-#> [1] 1625
+#> [1] 5495
 ```
 
 ## Number of TikTok accounts - left vs. right
@@ -195,10 +211,10 @@ tk_dat %>% distinct(user_unique_id, .keep_all = T) %>% nrow()
 tk_dat %>% distinct(user_unique_id, .keep_all = T) %>% count(liberal, sort = T) %>% drop_na() %>% knitr::kable()
 ```
 
-| liberal |   n |
-| ------: | --: |
-|       1 | 774 |
-|       0 | 607 |
+| liberal |    n |
+| ------: | ---: |
+|       1 | 3054 |
+|       0 | 1527 |
 
 # Cumulative Stats
 
@@ -463,58 +479,91 @@ music_dis %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
 
-# Cumulative Tiktoks per User
+<!-- # Cumulative Tiktoks per User   {.tabset .tabset-pills} -->
 
-## Distribution
+<!-- ## Distribution -->
 
-``` r
-tk_dat %>%
-  mutate(date = tiktokr::from_unix(date)) %>% 
-  mutate(aff = ifelse(liberal == 1, "left", "right")) %>% 
-  mutate(date = lubridate::floor_date(date, "day")) %>%
-  count(user_unique_id, date, aff, sort = T) %>%
-  group_by(user_unique_id) %>%
-  arrange(date) %>%
-  mutate(cum_post = cumsum(n)) %>%
-  mutate(date = (as.numeric(date) - as.numeric(min(date)))/60/60/24) %>%
-  ungroup %>%
-  drop_na(aff) %>% 
-  # filter(date > lubridate::dmy("01-01-2019")) %>%
-  ggplot(aes(x = date, y = cum_post, group = user_unique_id, color = aff)) + 
-  geom_line(alpha = .4) +
-   ggthemes::scale_color_fivethirtyeight() +
-  # geom_smooth(method = "lm", se = F) +
-  theme_minimal() +
-  labs(x = "Time since Account Creation (days)", y = "Number of Tiktoks")
-#> Warning: Removed 5983 row(s) containing missing values (geom_path).
-```
+<!-- ```{r} -->
 
-![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+<!-- tk_dat %>% -->
 
-## Log-Scaled
+<!--   mutate(date = tiktokr::from_unix(date)) %>%  -->
 
-``` r
-tk_dat %>%
-  mutate(date = tiktokr::from_unix(date)) %>% 
-  mutate(aff = ifelse(liberal == 1, "left", "right")) %>% 
-  mutate(date = lubridate::floor_date(date, "day")) %>%
-  count(user_unique_id, date, aff, sort = T) %>%
-  group_by(user_unique_id) %>%
-  arrange(date) %>%
-  mutate(cum_post = cumsum(n)) %>%
-  ungroup %>%
-  filter(date > lubridate::dmy("01-01-2018")) %>%
-  drop_na(aff) %>% 
-  ggplot(aes(x = date, y = cum_post, group = user_unique_id, color = aff)) + 
-  geom_line(alpha = .4) +
-   ggthemes::scale_color_fivethirtyeight() +
-  # geom_smooth(method = "lm", se = F) +
-  theme_minimal() +
-  labs(x = "Time since Account Creation (days)", y = "logged Number of Tiktoks") +
-  scale_y_log10()
-```
+<!--   mutate(aff = ifelse(liberal == 1, "left", "right")) %>%  -->
 
-![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+<!--   mutate(date = lubridate::floor_date(date, "day")) %>% -->
+
+<!--   count(user_unique_id, date, aff, sort = T) %>% -->
+
+<!--   group_by(user_unique_id) %>% -->
+
+<!--   arrange(date) %>% -->
+
+<!--   mutate(cum_post = cumsum(n)) %>% -->
+
+<!--   mutate(date = (as.numeric(date) - as.numeric(min(date)))/60/60/24) %>% -->
+
+<!--   ungroup %>% -->
+
+<!--   drop_na(aff) %>%  -->
+
+<!--   # filter(date > lubridate::dmy("01-01-2019")) %>% -->
+
+<!--   ggplot(aes(x = date, y = cum_post, group = user_unique_id, color = aff)) +  -->
+
+<!--   geom_line(alpha = .4) + -->
+
+<!--    ggthemes::scale_color_fivethirtyeight() + -->
+
+<!--   # geom_smooth(method = "lm", se = F) + -->
+
+<!--   theme_minimal() + -->
+
+<!--   labs(x = "Time since Account Creation (days)", y = "Number of Tiktoks") -->
+
+<!-- ``` -->
+
+<!-- ## Log-Scaled -->
+
+<!-- ```{r} -->
+
+<!-- tk_dat %>% -->
+
+<!--   mutate(date = tiktokr::from_unix(date)) %>%  -->
+
+<!--   mutate(aff = ifelse(liberal == 1, "left", "right")) %>%  -->
+
+<!--   mutate(date = lubridate::floor_date(date, "day")) %>% -->
+
+<!--   count(user_unique_id, date, aff, sort = T) %>% -->
+
+<!--   group_by(user_unique_id) %>% -->
+
+<!--   arrange(date) %>% -->
+
+<!--   mutate(cum_post = cumsum(n)) %>% -->
+
+<!--   ungroup %>% -->
+
+<!--   filter(date > lubridate::dmy("01-01-2018")) %>% -->
+
+<!--   drop_na(aff) %>%  -->
+
+<!--   ggplot(aes(x = date, y = cum_post, group = user_unique_id, color = aff)) +  -->
+
+<!--   geom_line(alpha = .4) + -->
+
+<!--    ggthemes::scale_color_fivethirtyeight() + -->
+
+<!--   # geom_smooth(method = "lm", se = F) + -->
+
+<!--   theme_minimal() + -->
+
+<!--   labs(x = "Time since Account Creation (days)", y = "logged Number of Tiktoks") + -->
+
+<!--   scale_y_log10() -->
+
+<!-- ``` -->
 
 ## H1: The ratio of views to followers will be high on TikTok.
 
@@ -539,7 +588,29 @@ dt_h1 <- dt_h1_tk %>%
 ``` r
 
 
-w_results <- wilcox.test(ratio ~ Platform, data = dt_h1)
+w_results <- wilcox.test(ratio ~ Platform, data = dt_h1, paired = F)
+
+
+# broom::tidy(w_results)
+# 
+# report::report(w_results)
+
+# ggstatsplot::ggbetweenstats(
+#   data = dt_h1,
+#   x = Platform,
+#   y = ratio, 
+#   type = "np"
+# )
+
+# broomExtra::glance(w_results)
+# 
+# rcompanion::wilcoxonR(x = dt_h1$ratio, g = dt_h1$Platform)
+# 
+# statsExpressions::expr_t_nonparametric(
+#   data = dt_h1,
+#   x = Platform,
+#   y = ratio, nboot = 1000
+# ) 
 
 median_labs <- dt_h1 %>% 
   group_by(Platform) %>% 
@@ -565,25 +636,25 @@ gg_boxplot <- dt_h1 %>%
   theme_minimal() +
   theme(legend.position = "none") +
   geom_signif(comparisons = list(c("YouTube", "TikTok")), 
-              annotation=get_plabs(w_results$p.value), vjust=-0.5)  +
+              annotation=get_plabs(w_results$p.value), vjust=-0.5, test = "wilcox.test", test.args = list(paired = F))  +
   geom_text(data = median_labs,aes(label = ratio_label), nudge_x = 0.35, nudge_y = 600) +
   scale_fill_manual(values = custom_colors) +
   ylim(0, 4000)
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
-#> Warning: Removed 48 rows containing non-finite values (stat_density).
-#> Warning: Removed 48 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 48 rows containing non-finite values (stat_signif).
+#> Warning: Removed 50 rows containing non-finite values (stat_density).
+#> Warning: Removed 50 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 50 rows containing non-finite values (stat_signif).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
 ``` r
 
 ggsave("images/h1_original.png", width = 8, height = 5)
-#> Warning: Removed 48 rows containing non-finite values (stat_density).
-#> Warning: Removed 48 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 48 rows containing non-finite values (stat_signif).
+#> Warning: Removed 50 rows containing non-finite values (stat_density).
+#> Warning: Removed 50 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 50 rows containing non-finite values (stat_signif).
 ```
 
 ### Logged x-scale
@@ -619,19 +690,27 @@ gg_boxplot <- dt_h1 %>%
   scale_y_log10(limits = c(1, 10000)) 
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
-#> Warning: Removed 67 rows containing non-finite values (stat_density).
-#> Warning: Removed 67 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 67 rows containing non-finite values (stat_signif).
+#> Warning: Transformation introduced infinite values in continuous x-axis
+#> Warning: Removed 78 rows containing non-finite values (stat_density).
+#> Warning: Transformation introduced infinite values in continuous y-axis
+
+#> Warning: Transformation introduced infinite values in continuous y-axis
+#> Warning: Removed 78 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 78 rows containing non-finite values (stat_signif).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
 
 ``` r
 
 ggsave("images/h1_logged.png", width = 8, height = 5)
-#> Warning: Removed 67 rows containing non-finite values (stat_density).
-#> Warning: Removed 67 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 67 rows containing non-finite values (stat_signif).
+#> Warning: Transformation introduced infinite values in continuous x-axis
+#> Warning: Removed 78 rows containing non-finite values (stat_density).
+#> Warning: Transformation introduced infinite values in continuous y-axis
+
+#> Warning: Transformation introduced infinite values in continuous y-axis
+#> Warning: Removed 78 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 78 rows containing non-finite values (stat_signif).
 ```
 
 ## H2: Among accounts that leave comments, the percentage who also upload videos will be large on TikTok.
@@ -671,7 +750,15 @@ dt_h2 %>%
 #> Warning: Removed 455127 rows containing non-finite values (stat_density).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+
+``` r
+
+ggsave("images/h2_excl_zero_logged.png", width = 8, height = 5)
+#> Warning: Transformation introduced infinite values in continuous x-axis
+
+#> Warning: Removed 455127 rows containing non-finite values (stat_density).
+```
 
 ### Including zero videos
 
@@ -688,7 +775,12 @@ dt_h2 %>%
   scale_fill_manual(values = custom_colors) 
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+
+``` r
+
+ggsave("images/h2_incl_zero_original.png", width = 8, height = 5)
+```
 
 ## H3: The relationship between followers and mean video views is weaker for TikTok.
 
@@ -724,20 +816,51 @@ dt_h3 %>%
   scale_color_manual(values = custom_colors) +
   theme(legend.position = "top")
 #> `geom_smooth()` using formula 'y ~ x'
-#> Warning: Removed 48 rows containing non-finite values (stat_smooth).
-#> Warning: Removed 48 rows containing non-finite values (stat_cor).
-#> Warning: Removed 48 rows containing missing values (geom_point).
+#> Warning: Removed 51 rows containing non-finite values (stat_smooth).
+#> Warning: Removed 51 rows containing non-finite values (stat_cor).
+#> Warning: Removed 51 rows containing missing values (geom_point).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
 ``` r
   
 ggsave("images/h3_mean_logged.png", width = 8, height = 5)
 #> `geom_smooth()` using formula 'y ~ x'
-#> Warning: Removed 48 rows containing non-finite values (stat_smooth).
-#> Warning: Removed 48 rows containing non-finite values (stat_cor).
-#> Warning: Removed 48 rows containing missing values (geom_point).
+#> Warning: Removed 51 rows containing non-finite values (stat_smooth).
+#> Warning: Removed 51 rows containing non-finite values (stat_cor).
+#> Warning: Removed 51 rows containing missing values (geom_point).
+
+
+model_res_yt <- lm(log(mean_play) ~ log(n_follower), data = dt_h3 %>% filter(Platform == "YouTube")) 
+
+model_res_tk <- lm(log(mean_play) ~ log(n_follower), data = dt_h3 %>% filter(Platform == "TikTok")) 
+
+model_res_yt %>% broom::tidy()
+#> # A tibble: 2 x 5
+#>   term            estimate std.error statistic  p.value
+#>   <chr>              <dbl>     <dbl>     <dbl>    <dbl>
+#> 1 (Intercept)        2.22     0.120       18.5 3.55e-68
+#> 2 log(n_follower)    0.706    0.0125      56.6 0.
+model_res_tk %>% broom::tidy()
+#> # A tibble: 2 x 5
+#>   term            estimate std.error statistic p.value
+#>   <chr>              <dbl>     <dbl>     <dbl>   <dbl>
+#> 1 (Intercept)        2.45    0.0580       42.3       0
+#> 2 log(n_follower)    0.726   0.00819      88.7       0
+
+model_res_yt %>% broom::glance()
+#> # A tibble: 1 x 12
+#>   r.squared adj.r.squared sigma statistic p.value    df logLik   AIC   BIC
+#>       <dbl>         <dbl> <dbl>     <dbl>   <dbl> <dbl>  <dbl> <dbl> <dbl>
+#> 1     0.699         0.699  1.23     3205.       0     1 -2240. 4487. 4502.
+#> # ... with 3 more variables: deviance <dbl>, df.residual <int>, nobs <int>
+model_res_tk %>% broom::glance()
+#> # A tibble: 1 x 12
+#>   r.squared adj.r.squared sigma statistic p.value    df logLik    AIC    BIC
+#>       <dbl>         <dbl> <dbl>     <dbl>   <dbl> <dbl>  <dbl>  <dbl>  <dbl>
+#> 1     0.589         0.589  1.31     7872.       0     1 -9264. 18534. 18554.
+#> # ... with 3 more variables: deviance <dbl>, df.residual <int>, nobs <int>
 ```
 
 ``` r
@@ -756,20 +879,20 @@ cocor.indep.groups(r1.jk, r2.hm, n1, n2, data.name=c("TikTok", "YouTube"),
 #> 
 #>   Results of a comparison of two correlations based on independent groups
 #> 
-#> Comparison between r1.jk (Mean Video Plays, Number of Followers) = 0.7804 and r2.hm (Mean Video Views, Number of Subscribers) = 0.8363
-#> Difference: r1.jk - r2.hm = -0.0559
+#> Comparison between r1.jk (Mean Video Plays, Number of Followers) = 0.7676 and r2.hm (Mean Video Views, Number of Subscribers) = 0.8363
+#> Difference: r1.jk - r2.hm = -0.0687
 #> Data: TikTok: j = Mean Video Plays, k = Number of Followers; YouTube: h = Mean Video Views, m = Number of Subscribers
-#> Group sizes: n1 = 1623, n2 = 1380
+#> Group sizes: n1 = 5490, n2 = 1380
 #> Null hypothesis: r1.jk is equal to r2.hm
 #> Alternative hypothesis: r1.jk is not equal to r2.hm (two-sided)
 #> Alpha: 0.05
 #> 
 #> fisher1925: Fisher's z (1925)
-#>   z = -4.4260, p-value = 0.0000
+#>   z = -6.4407, p-value = 0.0000
 #>   Null hypothesis rejected
 #> 
 #> zou2007: Zou's (2007) confidence interval
-#>   95% confidence interval for r1.jk - r2.hm: -0.0808 -0.0311
+#>   95% confidence interval for r1.jk - r2.hm: -0.0875 -0.0489
 #>   Null hypothesis rejected (Interval does not include 0)
 ```
 
@@ -778,6 +901,8 @@ cocor.indep.groups(r1.jk, r2.hm, n1, n2, data.name=c("TikTok", "YouTube"),
 #### Log scaled
 
 ``` r
+
+
 dt_h3 %>% 
   ggplot(aes(x = n_follower, y = median_play, color = Platform)) +
   geom_point2() + 
@@ -786,7 +911,7 @@ dt_h3 %>%
   scale_y_log10(labels = scales::label_number(), breaks = scales::breaks_log(6)) +
   stat_cor(show.legend = F, aes(label = paste(paste("R ==", ..r..), get_plabs(..p..), 
                             sep = "~`,`~"))) + 
-  labs(x = "\nNumber of Followers/Subscribers", y = "Mean Video Plays\n") +
+  labs(x = "\nNumber of Followers/Subscribers", y = "Median Video Plays\n") +
   theme_minimal() +
   scale_color_manual(values = custom_colors) +
   theme(legend.position = "top")
@@ -796,12 +921,12 @@ dt_h3 %>%
 
 #> Warning: Transformation introduced infinite values in continuous y-axis
 #> `geom_smooth()` using formula 'y ~ x'
-#> Warning: Removed 49 rows containing non-finite values (stat_smooth).
-#> Warning: Removed 49 rows containing non-finite values (stat_cor).
-#> Warning: Removed 48 rows containing missing values (geom_point).
+#> Warning: Removed 54 rows containing non-finite values (stat_smooth).
+#> Warning: Removed 54 rows containing non-finite values (stat_cor).
+#> Warning: Removed 51 rows containing missing values (geom_point).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
 
 ``` r
   
@@ -811,16 +936,48 @@ ggsave("images/h3_median_logged.png", width = 8, height = 5)
 
 #> Warning: Transformation introduced infinite values in continuous y-axis
 #> `geom_smooth()` using formula 'y ~ x'
-#> Warning: Removed 49 rows containing non-finite values (stat_smooth).
-#> Warning: Removed 49 rows containing non-finite values (stat_cor).
-#> Warning: Removed 48 rows containing missing values (geom_point).
-```
-
-``` r
+#> Warning: Removed 54 rows containing non-finite values (stat_smooth).
+#> Warning: Removed 54 rows containing non-finite values (stat_cor).
+#> Warning: Removed 51 rows containing missing values (geom_point).
+  
 dt_h3_tk_logged <- dt_h3_tk %>% 
   mutate(median_play = log(median_play)) %>% 
   sjmisc::zap_inf() %>% 
   drop_na(median_play, n_follower)
+
+model_res_yt <- lm(log(median_play) ~ log(n_follower), data = dt_h3 %>% filter(Platform == "YouTube")) 
+
+model_res_tk <- lm(median_play ~ log(n_follower), data = dt_h3_tk_logged) 
+
+model_res_yt %>% broom::tidy()
+#> # A tibble: 2 x 5
+#>   term            estimate std.error statistic  p.value
+#>   <chr>              <dbl>     <dbl>     <dbl>    <dbl>
+#> 1 (Intercept)        0.991    0.133       7.45 1.66e-13
+#> 2 log(n_follower)    0.734    0.0138     53.2  0.
+model_res_tk %>% broom::tidy()
+#> # A tibble: 2 x 5
+#>   term            estimate std.error statistic p.value
+#>   <chr>              <dbl>     <dbl>     <dbl>   <dbl>
+#> 1 (Intercept)        2.33    0.0448       52.0       0
+#> 2 log(n_follower)    0.537   0.00632      85.0       0
+
+model_res_yt %>% broom::glance()
+#> # A tibble: 1 x 12
+#>   r.squared adj.r.squared sigma statistic p.value    df logLik   AIC   BIC
+#>       <dbl>         <dbl> <dbl>     <dbl>   <dbl> <dbl>  <dbl> <dbl> <dbl>
+#> 1     0.672         0.672  1.36     2828.       0     1 -2379. 4765. 4781.
+#> # ... with 3 more variables: deviance <dbl>, df.residual <int>, nobs <int>
+model_res_tk %>% broom::glance()
+#> # A tibble: 1 x 12
+#>   r.squared adj.r.squared sigma statistic p.value    df logLik    AIC    BIC
+#>       <dbl>         <dbl> <dbl>     <dbl>   <dbl> <dbl>  <dbl>  <dbl>  <dbl>
+#> 1     0.568         0.568  1.01     7222.       0     1 -7838. 15682. 15702.
+#> # ... with 3 more variables: deviance <dbl>, df.residual <int>, nobs <int>
+```
+
+``` r
+
 
 r1.jk <- cor(dt_h3_tk_logged$median_play, 
              log(dt_h3_tk_logged$n_follower), 
@@ -837,20 +994,20 @@ cocor.indep.groups(r1.jk, r2.hm, n1, n2, data.name=c("TikTok", "YouTube"),
 #> 
 #>   Results of a comparison of two correlations based on independent groups
 #> 
-#> Comparison between r1.jk (Median Video Plays, Number of Followers) = 0.7677 and r2.hm (Median Video Views, Number of Subscribers) = 0.82
-#> Difference: r1.jk - r2.hm = -0.0522
+#> Comparison between r1.jk (Median Video Plays, Number of Followers) = 0.7539 and r2.hm (Median Video Views, Number of Subscribers) = 0.82
+#> Difference: r1.jk - r2.hm = -0.0661
 #> Data: TikTok: j = Median Video Plays, k = Number of Followers; YouTube: h = Median Video Views, m = Number of Subscribers
-#> Group sizes: n1 = 1623, n2 = 1380
+#> Group sizes: n1 = 5490, n2 = 1380
 #> Null hypothesis: r1.jk is equal to r2.hm
 #> Alternative hypothesis: r1.jk is not equal to r2.hm (two-sided)
 #> Alpha: 0.05
 #> 
 #> fisher1925: Fisher's z (1925)
-#>   z = -3.8733, p-value = 0.0001
+#>   z = -5.8012, p-value = 0.0000
 #>   Null hypothesis rejected
 #> 
 #> zou2007: Zou's (2007) confidence interval
-#>   95% confidence interval for r1.jk - r2.hm: -0.0788 -0.0258
+#>   95% confidence interval for r1.jk - r2.hm: -0.0864 -0.0448
 #>   Null hypothesis rejected (Interval does not include 0)
 ```
 
@@ -883,7 +1040,7 @@ w_results <- wilcox.test(sd_play ~ Platform, data = dt_h4)
 
 median_labs <- dt_h4 %>% 
   group_by(Platform) %>% 
-  summarize(sd_play = median(sd_play, na.rm = T) %>% round(2)) %>% 
+  summarize(sd_play = median(sd_play, na.rm = T) %>% round) %>% 
   mutate(sd_play_label = paste0("Median: ", sd_play))
 #> `summarise()` ungrouping output (override with `.groups` argument)
 
@@ -917,26 +1074,44 @@ w_results
 #>  Wilcoxon rank sum test with continuity correction
 #> 
 #> data:  sd_play by Platform
-#> W = 951799, p-value = 0.00000000000001096
+#> W = 2786184, p-value < 0.00000000000000022
 #> alternative hypothesis: true location shift is not equal to 0
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
-#> Warning: Removed 343 rows containing non-finite values (stat_density).
-#> Warning: Removed 343 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 343 rows containing non-finite values (stat_signif).
+#> Warning: Removed 601 rows containing non-finite values (stat_density).
+#> Warning: Removed 601 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 601 rows containing non-finite values (stat_signif).
 #> Warning: Removed 3 rows containing missing values (geom_signif).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-30-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
 ``` r
 
 ggsave("images/h4_original.png", width = 8, height = 5)
-#> Warning: Removed 343 rows containing non-finite values (stat_density).
-#> Warning: Removed 343 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 343 rows containing non-finite values (stat_signif).
+#> Warning: Removed 601 rows containing non-finite values (stat_density).
+#> Warning: Removed 601 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 601 rows containing non-finite values (stat_signif).
 #> Warning: Removed 3 rows containing missing values (geom_signif).
+
+ggstatsplot::ggbetweenstats(
+  data = dt_h4,
+  x = Platform,
+  y = sd_play,
+  type = "np"
+)
+#> Registered S3 method overwritten by 'broom.mixed':
+#>   method      from 
+#>   tidy.gamlss broom
+#> Registered S3 methods overwritten by 'lme4':
+#>   method                          from
+#>   cooks.distance.influence.merMod car 
+#>   influence.merMod                car 
+#>   dfbeta.influence.merMod         car 
+#>   dfbetas.influence.merMod        car
 ```
+
+![](README_files/figure-gfm/unnamed-chunk-28-2.png)<!-- -->
 
 ### Logged scale
 
@@ -961,24 +1136,24 @@ gg_boxplot <- dt_h4 %>%
   theme(legend.position = "none") +
   geom_signif(comparisons = list(c("YouTube", "TikTok")), 
               annotation=get_plabs(w_results$p.value), vjust=-0.5)  +
-  # geom_text(data = median_labs,aes(label = sd_play_label), nudge_x = 0.35, nudge_y = 1.5) +
+  geom_text(data = median_labs,aes(label = sd_play_label), nudge_x = 0.35, nudge_y = 1.5) +
   scale_fill_manual(values = custom_colors) +
   scale_y_log10(labels = scales::label_number(), breaks = scales::breaks_log(6), limits = c(1, 20000000))
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
-#> Warning: Removed 27 rows containing non-finite values (stat_density).
-#> Warning: Removed 27 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 27 rows containing non-finite values (stat_signif).
+#> Warning: Removed 30 rows containing non-finite values (stat_density).
+#> Warning: Removed 30 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 30 rows containing non-finite values (stat_signif).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
 
 ``` r
 
 ggsave("images/h4_logged.png", width = 8, height = 5)
-#> Warning: Removed 27 rows containing non-finite values (stat_density).
-#> Warning: Removed 27 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 27 rows containing non-finite values (stat_signif).
+#> Warning: Removed 30 rows containing non-finite values (stat_density).
+#> Warning: Removed 30 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 30 rows containing non-finite values (stat_signif).
 ```
 
 ## H5: The ratio of viewership for a single accounts’ most popular tiktok to their average tiktok viewership will be high.
@@ -1037,20 +1212,20 @@ gg_boxplot <- dt_h5 %>%
   ylim(0, 1000)
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
-#> Warning: Removed 4 rows containing non-finite values (stat_density).
-#> Warning: Removed 4 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 4 rows containing non-finite values (stat_signif).
+#> Warning: Removed 7 rows containing non-finite values (stat_density).
+#> Warning: Removed 7 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 7 rows containing non-finite values (stat_signif).
 #> Warning: Removed 2 rows containing missing values (geom_signif).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->
 
 ``` r
 
 ggsave("images/h5_peak_mean_ratio.png", width = 8, height = 5)
-#> Warning: Removed 4 rows containing non-finite values (stat_density).
-#> Warning: Removed 4 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 4 rows containing non-finite values (stat_signif).
+#> Warning: Removed 7 rows containing non-finite values (stat_density).
+#> Warning: Removed 7 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 7 rows containing non-finite values (stat_signif).
 #> Warning: Removed 2 rows containing missing values (geom_signif).
 ```
 
@@ -1081,13 +1256,19 @@ gg_boxplot <- dt_h5 %>%
   scale_y_log10(limits = c(1, 10000)) 
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
+#> Warning: Removed 2 rows containing non-finite values (stat_density).
+#> Warning: Removed 2 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 2 rows containing non-finite values (stat_signif).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-34-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-32-1.png)<!-- -->
 
 ``` r
 
 ggsave("images/h5_peak_mean_ratio_logged.png", width = 8, height = 5)
+#> Warning: Removed 2 rows containing non-finite values (stat_density).
+#> Warning: Removed 2 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 2 rows containing non-finite values (stat_signif).
 ```
 
 ### Median Plays
@@ -1127,21 +1308,29 @@ gg_boxplot <- dt_h5 %>%
   ylim(0, 1000)
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
-#> Warning: Removed 196 rows containing non-finite values (stat_density).
-#> Warning: Removed 196 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 196 rows containing non-finite values (stat_signif).
+#> Warning: Removed 577 rows containing non-finite values (stat_density).
+#> Warning: Removed 577 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 577 rows containing non-finite values (stat_signif).
 #> Warning: Removed 2 rows containing missing values (geom_signif).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
 
 ``` r
 
 ggsave("images/h5_peak_median_ratio.png", width = 8, height = 5)
-#> Warning: Removed 196 rows containing non-finite values (stat_density).
-#> Warning: Removed 196 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 196 rows containing non-finite values (stat_signif).
+#> Warning: Removed 577 rows containing non-finite values (stat_density).
+#> Warning: Removed 577 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 577 rows containing non-finite values (stat_signif).
 #> Warning: Removed 2 rows containing missing values (geom_signif).
+
+
+# ggstatsplot::ggbetweenstats(
+#   data = dt_h5,
+#   x = Platform,
+#   y = peak_median_ratio,
+#   type = "np"
+# )
 ```
 
 #### Log scaled
@@ -1171,25 +1360,37 @@ gg_boxplot <- dt_h5 %>%
   scale_y_log10(limits = c(1, 500000)) 
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
-#> Warning: Removed 1 rows containing non-finite values (stat_density).
-#> Warning: Removed 1 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 1 rows containing non-finite values (stat_signif).
+#> Warning: Removed 5 rows containing non-finite values (stat_density).
+#> Warning: Removed 5 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 5 rows containing non-finite values (stat_signif).
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-34-1.png)<!-- -->
 
 ``` r
 
 ggsave("images/h5_peak_median_ratio_logged.png", width = 8, height = 5)
-#> Warning: Removed 1 rows containing non-finite values (stat_density).
-#> Warning: Removed 1 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 1 rows containing non-finite values (stat_signif).
+#> Warning: Removed 5 rows containing non-finite values (stat_density).
+#> Warning: Removed 5 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 5 rows containing non-finite values (stat_signif).
 ```
 
 ### Gini Coefficient
 
 ``` r
 w_results <- wilcox.test(gini_views ~ Platform, data = dt_h5)
+
+ggstatsplot::ggbetweenstats(
+  data = dt_h5,
+  x = Platform,
+  y = gini_views,
+  type = "np"
+)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+
+``` r
 
 median_labs <- dt_h5 %>% 
   group_by(Platform) %>% 
@@ -1221,17 +1422,138 @@ gg_boxplot <- dt_h5 %>%
   # ylim(0, 4000)
 
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
-#> Warning: Removed 189 rows containing non-finite values (stat_density).
-#> Warning: Removed 189 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 189 rows containing non-finite values (stat_signif).
+#> Warning: Removed 270 rows containing non-finite values (stat_density).
+#> Warning: Removed 270 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 270 rows containing non-finite values (stat_signif).
+```
+
+![](README_files/figure-gfm/unnamed-chunk-35-2.png)<!-- -->
+
+``` r
+
+ggsave("images/h5_gini.png", width = 8, height = 5)
+#> Warning: Removed 270 rows containing non-finite values (stat_density).
+#> Warning: Removed 270 rows containing non-finite values (stat_boxplot).
+#> Warning: Removed 270 rows containing non-finite values (stat_signif).
+```
+
+## Lorenz Curve
+
+``` r
+
+tk_lorenz <- tk_dat %>% 
+  # count(user_uni)
+  group_by(user_unique_id) %>% 
+  arrange(user_unique_id, n_play) %>% 
+  select(post_id, user_unique_id, n_play, n_video) %>% 
+  mutate(n_total_play = sum(n_play, na.rm = T)) %>% 
+  mutate(perc_plays = n_play/n_total_play) %>% 
+  mutate(sum_perc_plays = cumsum(perc_plays)) %>% 
+  mutate(id = 1:n()) %>% 
+  mutate(perc_n= 1/n()) %>% 
+  mutate(sum_perc_n = cumsum(perc_n)) 
+
+tk_lorenz_avg <- tk_lorenz %>% 
+  ungroup() %>% 
+  mutate(sum_perc_n_lab = round(sum_perc_n, 2)) %>% 
+  mutate(sum_perc_plays_lab = round(sum_perc_plays, 2)) %>% 
+  group_by(sum_perc_n_lab) %>% 
+  summarise(sum_perc_n = mean(sum_perc_n, na.rm = T),
+            sum_perc_plays = mean(sum_perc_plays, na.rm = T)) %>% 
+  drop_na()
+#> `summarise()` ungrouping output (override with `.groups` argument)
+
+gg_tk_lorenz <- tk_lorenz %>% 
+  ggplot(aes(sum_perc_n, sum_perc_plays)) +
+  geom_line(alpha = 0.05, aes(group = user_unique_id)) +
+  geom_line(data = tk_lorenz_avg, color = tk_blue, size = 1.5) +
+  theme_minimal() +
+  labs(x = "\nCumulative Share of Videos from Lowest to Highest",
+       y = "Cumulative Share of Video Plays\n", title = "YouTube") +
+  scale_y_continuous(label = scales::percent, n.breaks = 6) +
+  scale_x_continuous(label = scales::percent, n.breaks = 6) +
+  geom_hline(aes(yintercept = 0.2), linetype = "dashed")
+
+
+yt_lorenz <- yt_dat %>% 
+  # count(user_uni)
+  group_by(channel_id) %>% 
+  arrange(channel_id, video_view_count) %>% 
+  select(video_id, user_unique_id = channel_id, video_view_count) %>% 
+  mutate(n_total_play = sum(video_view_count, na.rm = T)) %>% 
+  mutate(perc_plays = video_view_count/n_total_play) %>% 
+  mutate(sum_perc_plays = cumsum(perc_plays)) %>% 
+  mutate(id = 1:n()) %>% 
+  mutate(perc_n= 1/n()) %>% 
+  mutate(sum_perc_n = cumsum(perc_n)) 
+
+yt_lorenz_avg <- yt_lorenz %>% 
+  ungroup() %>% 
+  mutate(sum_perc_n_lab = round(sum_perc_n, 2)) %>% 
+  mutate(sum_perc_plays_lab = round(sum_perc_plays, 2)) %>% 
+  group_by(sum_perc_n_lab) %>% 
+  summarise(sum_perc_n = mean(sum_perc_n, na.rm = T),
+            sum_perc_plays = mean(sum_perc_plays, na.rm = T)) %>% 
+  drop_na()
+#> `summarise()` ungrouping output (override with `.groups` argument)
+
+gg_yt_lorenz <- yt_lorenz %>% 
+  ggplot(aes(sum_perc_n, sum_perc_plays)) +
+  geom_line(alpha = 0.05, aes(group = user_unique_id)) +
+  geom_line(data = tk_lorenz_avg, color = yt_red, size = 1.5) +
+  theme_minimal() +
+  labs(x = "\nCumulative Share of Videos from Lowest to Highest",
+       y = "Cumulative Share of Video Plays\n", title = "YouTube") +
+  scale_y_continuous(label = scales::percent, n.breaks = 6) +
+  scale_x_continuous(label = scales::percent, n.breaks = 6) +
+  geom_hline(aes(yintercept = 0.2), linetype = "dashed")
+
+
+
+
+wrap_plots(gg_tk_lorenz, gg_yt_lorenz, ncol = 2)
+#> Warning: Removed 233 row(s) containing missing values (geom_path).
+#> Warning: Removed 499 row(s) containing missing values (geom_path).
+```
+
+![](README_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
+
+``` r
+
+ggsave("images/h5_lorenz.png", width = 10, height = 8)
+#> Warning: Removed 233 row(s) containing missing values (geom_path).
+
+#> Warning: Removed 499 row(s) containing missing values (geom_path).
+```
+
+``` r
+tk_lorenz_avg %>%
+  mutate(Platform = "TikTok") %>% 
+  bind_rows(yt_lorenz_avg%>%
+  mutate(Platform = "YouTube"))  %>% 
+  ggplot(aes(sum_perc_n, sum_perc_plays, color = Platform)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "\nCumulative Share of Videos from Lowest to Highest",
+       y = "Cumulative Share of Video Plays\n") +
+  scale_y_continuous(label = scales::percent, n.breaks = 6, limits = c(0, 1)) +
+  scale_x_continuous(label = scales::percent, n.breaks = 6) +
+  # geom_hline(aes(yintercept = 0.2), linetype = "dashed") +
+  scale_color_manual(values = custom_colors) + 
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-37-1.png)<!-- -->
 
 ``` r
-
-ggsave("images/h5_gini.png", width = 8, height = 5)
-#> Warning: Removed 189 rows containing non-finite values (stat_density).
-#> Warning: Removed 189 rows containing non-finite values (stat_boxplot).
-#> Warning: Removed 189 rows containing non-finite values (stat_signif).
+tk_lorenz_avg %>%
+  mutate(Platform = "TikTok") %>% 
+  bind_rows(yt_lorenz_avg%>%
+  mutate(Platform = "YouTube")) %>% 
+  filter(sum_perc_n_lab == 0.99)
+#> # A tibble: 2 x 4
+#>   sum_perc_n_lab sum_perc_n sum_perc_plays Platform
+#>            <dbl>      <dbl>          <dbl> <chr>   
+#> 1           0.99      0.990          0.619 TikTok  
+#> 2           0.99      0.990          0.712 YouTube
 ```
