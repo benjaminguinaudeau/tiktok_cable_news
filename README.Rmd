@@ -381,12 +381,40 @@ music_dis %>%
   ggthemes::scale_color_fivethirtyeight() +
   labs(y = "Music Frequency", x = "") +
   guides(fill = F, color = F) +
-  coord_flip(ylim = c(0, 600)) +
+  coord_flip(ylim = c(0, 1400)) +
   facet_wrap(~aff, scales = "free_y")
 
 
 ```
 
+# Duration
+
+```{r}
+tk_dat  %>% 
+  mutate(`Politics` = ifelse(liberal == 1, "Left", "Right")) %>% 
+  drop_na() %>% 
+  ggplot(aes(duration, fill = `Politics`)) +
+  geom_density(color = NA, alpha = 0.5) +
+  scale_x_continuous(limits = c(0, 60)) +
+  theme_minimal() +
+  scale_fill_manual(values = c("blue", "red")) +
+  labs(y = "Density\n", x = "\nDuration (in seconds)") +
+  theme(legend.position = "top")
+
+ggsave("images/duration.png", width = 8, height = 5)
+
+  
+```
+
+```{r}
+tk_dat %>% 
+  mutate(duration_1 = between(duration, 5, 20)) %>% 
+  count(duration_1) %>% 
+  drop_na() %>% 
+  mutate(perc = n/sum(n)*100)
+
+
+```
 
 
 <!-- # Cumulative Tiktoks per User   {.tabset .tabset-pills} -->
@@ -468,26 +496,6 @@ dt_h1 <- dt_h1_tk %>%
 w_results <- wilcox.test(ratio ~ Platform, data = dt_h1, paired = F)
 
 
-# broom::tidy(w_results)
-# 
-# report::report(w_results)
-
-# ggstatsplot::ggbetweenstats(
-#   data = dt_h1,
-#   x = Platform,
-#   y = ratio, 
-#   type = "np"
-# )
-
-# broomExtra::glance(w_results)
-# 
-# rcompanion::wilcoxonR(x = dt_h1$ratio, g = dt_h1$Platform)
-# 
-# statsExpressions::expr_t_nonparametric(
-#   data = dt_h1,
-#   x = Platform,
-#   y = ratio, nboot = 1000
-# ) 
 
 median_labs <- dt_h1 %>% 
   group_by(Platform) %>% 
@@ -525,6 +533,30 @@ ggsave("images/h1_original.png", width = 8, height = 5)
 ### Logged x-scale
 
 ```{r}
+w_results <- wilcox.test(log(ratio) ~ Platform, data = dt_h1, paired = F)
+
+# broom::tidy(w_results)
+# 
+# report::report(w_results)
+
+ggstatsplot::ggbetweenstats(
+  data = dt_h1 %>% mutate(ratio = log(ratio+1) %>% sjmisc::zap_inf()),
+  x = Platform,
+  y = ratio,
+  type = "np"
+)
+
+# broomExtra::glance(w_results)
+# 
+# rcompanion::wilcoxonR(x = dt_h1$ratio, g = dt_h1$Platform)
+# 
+# statsExpressions::expr_t_nonparametric(
+#   data = dt_h1,
+#   x = Platform,
+#   y = ratio, nboot = 1000
+# ) 
+
+
 median_labs <- dt_h1 %>% 
   group_by(Platform) %>% 
   summarize(ratio = median(ratio, na.rm = T) %>% round(2)) %>% 
@@ -541,7 +573,7 @@ gg_density <- dt_h1 %>%
   scale_x_log10(limits = c(1, 10000)) 
 
 gg_boxplot <- dt_h1 %>% 
-  ggplot(aes(x= Platform, y = ratio, fill = Platform)) + 
+  ggplot(aes(x= Platform, y = ratio+1, fill = Platform)) + 
   geom_boxplot() +
   coord_flip()  +
   labs(x = "Platform\n", y = "\nTotal Views to Followers/Subscribers Ratio") +
@@ -556,6 +588,8 @@ gg_boxplot <- dt_h1 %>%
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
 
 ggsave("images/h1_logged.png", width = 8, height = 5)
+
+
 ```
 
 
@@ -800,12 +834,7 @@ wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
 
 ggsave("images/h4_original.png", width = 8, height = 5)
 
-ggstatsplot::ggbetweenstats(
-  data = dt_h4,
-  x = Platform,
-  y = sd_play,
-  type = "np"
-)
+
 ```
 
 
@@ -840,6 +869,14 @@ wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
 
 ggsave("images/h4_logged.png", width = 8, height = 5)
 
+ggstatsplot::ggbetweenstats(
+  data = dt_h4 %>% mutate(sd_play = log(sd_play+1) %>% sjmisc::zap_inf()),
+  x = Platform,
+  y = sd_play,
+  type = "np"
+)
+
+w_results <- wilcox.test(log(sd_play+1) ~ Platform, data = dt_h4)
 
 ```
 
@@ -934,6 +971,9 @@ gg_boxplot <- dt_h5 %>%
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
 
 ggsave("images/h5_peak_mean_ratio_logged.png", width = 8, height = 5)
+
+
+
 ```
 
 
@@ -977,12 +1017,7 @@ wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
 ggsave("images/h5_peak_median_ratio.png", width = 8, height = 5)
 
 
-# ggstatsplot::ggbetweenstats(
-#   data = dt_h5,
-#   x = Platform,
-#   y = peak_median_ratio,
-#   type = "np"
-# )
+
 ```
 
 
@@ -1017,6 +1052,15 @@ wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
 
 ggsave("images/h5_peak_median_ratio_logged.png", width = 8, height = 5)
   
+
+ggstatsplot::ggbetweenstats(
+  data = dt_h5 %>% mutate(peak_median_ratio = log(peak_median_ratio+1) %>% sjmisc::zap_inf()),
+  x = Platform,
+  y = peak_median_ratio,
+  type = "np"
+)
+
+w_results <- wilcox.test(log(peak_median_ratio+1) ~ Platform, data = dt_h5)
 ```
 
 ### Gini Coefficient
@@ -1024,12 +1068,7 @@ ggsave("images/h5_peak_median_ratio_logged.png", width = 8, height = 5)
 ```{r}
 w_results <- wilcox.test(gini_views ~ Platform, data = dt_h5)
 
-ggstatsplot::ggbetweenstats(
-  data = dt_h5,
-  x = Platform,
-  y = gini_views,
-  type = "np"
-)
+
 
 median_labs <- dt_h5 %>% 
   group_by(Platform) %>% 
@@ -1062,6 +1101,15 @@ gg_boxplot <- dt_h5 %>%
 wrap_plots(gg_density, gg_boxplot, nrow = 2, heights = c(0.66, 0.33))
 
 ggsave("images/h5_gini.png", width = 8, height = 5)
+
+ggstatsplot::ggbetweenstats(
+  data = dt_h5,
+  x = Platform,
+  y = gini_views,
+  type = "np"
+)
+
+w_results <- wilcox.test(gini_views ~ Platform, data = dt_h5)
 ```
 
 ## Lorenz Curve
@@ -1164,6 +1212,6 @@ tk_lorenz_avg %>%
   mutate(Platform = "TikTok") %>% 
   bind_rows(yt_lorenz_avg%>%
   mutate(Platform = "YouTube")) %>% 
-  filter(sum_perc_n_lab == 0.99)
+  filter(sum_perc_n_lab == 0.80)
 ```
 
